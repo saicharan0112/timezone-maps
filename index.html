@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaflet Map with Local Time and Timezone</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 100vh; /* Fullscreen height */
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="env.js"></script>
+    <script>
+        // Initialize the map
+        const map = L.map('map').setView([0, 0], 2); // Center at (0,0) with zoom level 2
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Function to fetch timezone using your local API
+        async function fetchTimezone(lat, lng) {
+            const APIIP = getGeo2TzHostIP();
+            const apiUrl = `http://${APIIP}/tz/${lat}/${lng}`;
+
+            try {
+                const response = await fetch(apiUrl); // Call the local API
+                const data = await response.json(); // Parse the JSON response
+                const timezone = data.tz; // Extract the timezone (e.g., 'Europe/Rome')
+                return timezone;
+            } catch (error) {
+                console.error(error);
+                return null;
+            }
+        }
+
+
+        // Function to fetch current time based on the timezone with CORS proxy
+        async function fetchCurrentTime(timezone) {
+        if (!timezone) {
+            return "Timezone not available";
+        }
+
+        const apiKey = getTimezoneDBAPIKey();
+        const apiUrl = `https://api.timezonedb.com/v2.1/get-time-zone?key=${apiKey}&format=json&by=zone&zone=${timezone}`;
+
+        try {
+            const response = await fetch(apiUrl);
+            const data = await response.json();
+            return `Current Time: ${data.formatted}`;
+        } catch (error) {
+            console.error(error);
+            return "Failed to fetch time.";
+        }
+    }
+
+
+        // Add a click event to the map
+        map.on('click', async function(e) {
+            const { lat, lng } = e.latlng;
+
+            // Fetch the timezone from your local API
+            const timezone = await fetchTimezone(lat, lng);
+
+            // Fetch the current time for that timezone
+            const currentTime = await fetchCurrentTime(timezone);
+
+            // Add a marker with a popup showing the coordinates, timezone, and current time
+            L.marker([lat, lng]).addTo(map)
+                .bindPopup(`Latitude: ${lat}<br>Longitude: ${lng}<br>Timezone: ${timezone}<br>${currentTime}`)
+                .openPopup();
+        });
+    </script>
+</body>
+</html>
